@@ -49,6 +49,8 @@ use wabt;
 use wasmtime_jit::{ActionOutcome, Context};
 use wasmtime_wast::instantiate_spectest;
 
+use std::time::Instant;
+
 static LOG_FILENAME_PREFIX: &str = "wasmtime.dbg.";
 
 const USAGE: &str = "
@@ -154,13 +156,18 @@ fn handle_module(context: &mut Context, args: &Args, path: &Path) -> Result<(), 
     // Read the wasm module binary.
     let data = read_wasm(path.to_path_buf())?;
 
+    let start_parse = Instant::now();
     // Compile and instantiating a wasm module.
     let mut instance = context
         .instantiate_module(None, &data)
         .map_err(|e| e.to_string())?;
 
+    let parse_duration = start_parse.elapsed();
+    println!("module compile time: {:?}", parse_duration);
+
     // If a function to invoke was given, invoke it.
     if let Some(ref f) = args.flag_invoke {
+        let start_exec = Instant::now();
         match context
             .invoke(&mut instance, f, &[])
             .map_err(|e| e.to_string())?
@@ -170,6 +177,8 @@ fn handle_module(context: &mut Context, args: &Args, path: &Path) -> Result<(), 
                 return Err(format!("Trap from within function {}: {}", f, message));
             }
         }
+        let exec_duration = start_exec.elapsed();
+        println!("exec time: {:?}", exec_duration);
     }
 
     Ok(())
